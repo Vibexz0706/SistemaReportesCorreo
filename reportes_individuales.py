@@ -9,6 +9,8 @@ from datetime import datetime
 import numpy as np
 import re
 import unicodedata
+import camelot
+import requests
 
 import pdfplumber
 
@@ -202,6 +204,10 @@ def aplicar_filtros():
     df_extra_filtrado.loc[:, "HORAS"] = df_extra_filtrado["PERÍODO"].apply(
         lambda x: int(re.search(r'\d+', x).group()) if pd.notnull(x) and re.search(r'\d+', x) else 0
     )
+
+    # Filtrar horas mayores o iguales a 6
+    df_extra_filtrado = df_extra_filtrado[df_extra_filtrado["HORAS"] >= 6]
+
     global RESTAR_HORAS
     RESTAR_HORAS = df_extra_filtrado["HORAS"].sum()
 
@@ -225,6 +231,15 @@ def generar_pdf():
     pdf.add_page()
     # Agregar espacio antes de la tabla resumen
     pdf.ln(9)
+
+    print("Existe la fuente?", os.path.exists("DejaVuSans.ttf"))  # Esto debe imprimir True
+
+    
+
+    # ✅ Cargar fuente compatible con emojis
+    pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
+    pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf', uni=True)    # Bold
+    pdf.set_font('DejaVu', '', 10)
 
     # Calcular los totales para la tabla resumen
     total_medicos = len(df_filtrado)
@@ -261,15 +276,35 @@ def generar_pdf():
         divisor_regentes = 80
         Var_arreglo_real = 7.5
         Var_arreglo_vip = 1.8
+        Var_arreglo_estandar = 5.7
         Var_arreglo_regentes = 4
         print("ENTRO EL IF")
-    else:
+    elif nom_correo == "RICARDO ZUNIGA":
         divisor_medicos = 180
         divisor_vip = 40
         divisor_regentes = 80
         Var_arreglo_real = 9
-        Var_arreglo_vip = 4
-        Var_arreglo_regentes = 6
+        Var_arreglo_vip = 2.08
+        Var_arreglo_vip = 6.2
+        Var_arreglo_regentes = 4
+        print("No entro al if")
+    elif nom_correo == "KEREN CARVAJAL":
+        divisor_medicos = 180
+        divisor_vip = 40
+        divisor_regentes = 80
+        Var_arreglo_real = 9.1
+        Var_arreglo_vip = 2.05
+        Var_arreglo_estandar = 7.05
+        Var_arreglo_regentes = 4
+        print("No entro al if")
+    elif nom_correo == "JOHAN ALBERTO ARCE NUÑEZ":
+        divisor_medicos = 180
+        divisor_vip = 40
+        divisor_regentes = 80
+        Var_arreglo_real = 8.9
+        Var_arreglo_vip = 2.3
+        Var_arreglo_estandar = 6.6
+        Var_arreglo_regentes = 4
         print("No entro al if")
 
 
@@ -301,10 +336,9 @@ def generar_pdf():
     Co3 = Cobertura_Real_regentes * 100
 
    
-    
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(145, 10, "DATOS REALES", 1, ln=True, align="C")  # Fila combinada con colspan
-    pdf.set_font("Arial", "B", 10)
+    pdf.set_font("DejaVu", "B", 10)
+    pdf.cell(145, 10, "DATOS REALES", 1, ln=True, align="C")  
+    pdf.set_font("DejaVu", "B", 10)
     pdf.cell(20, 10, "", 1)
     pdf.cell(50, 10, "Contactos Total", 1)
     pdf.cell(35, 10, "Cobertura", 1)
@@ -312,10 +346,21 @@ def generar_pdf():
 
     pdf.ln()
 
-    pdf.set_font("Arial", "", 10)
+    pdf.set_font("DejaVu", "", 10)
     pdf.cell(20, 10, "MÉDICOS", 1)
     pdf.cell(50, 10, str(var_arreglo), 1) #ACA ERA TOTAL_MEDICO
-    pdf.cell(35, 10, f"{Co1:.2f}%", 1) #//////////////////////////////////PONER ACA EL DATO DE LA FORMULA DE MEDICOS GENERALES
+    if Co1 < 95:
+        pdf.set_text_color(255, 0, 0)  # Rojo
+        pdf.cell(35, 10, f"[RED]{Co1:.2f}%", 1)
+        pdf.set_text_color(0, 0, 0)    # Restaurar a negro
+    elif Co1 > 95 and Co1 < 99: 
+        pdf.set_text_color(255, 255, 0)  # Amarillo
+        pdf.cell(35, 10,f"[AMARILLO]{Co1:.2f}%", 1)
+        pdf.set_text_color(0, 0, 0)
+    else:
+        pdf.set_text_color(255, 255, 0)  # verde
+        pdf.cell(35, 10,f"[VERDE]{Co1:.2f}%", 1)
+        pdf.set_text_color(0, 0, 0) 
     pdf.cell(40, 10, str(cobertura_medicos), 1)
     #valor1(cobertura_medicos)
     pdf.ln()
@@ -323,14 +368,36 @@ def generar_pdf():
 
     pdf.cell(20, 10, "VIP", 1)
     pdf.cell(50, 10, str(total_vip), 1)
-    pdf.cell(35, 10, f"{Co2:.2f}%", 1) #//////////////////////////////////PONER ACA EL DATO DE LA FORMULA DE MEDICOS GENERALES
+    if Co2 < 94.5:
+        pdf.set_text_color(255, 0, 0)  # Rojo
+        pdf.cell(35, 10, f"[RED]{Co2:.2f}%", 1)
+        pdf.set_text_color(0, 0, 0)    # Restaurar a negro
+    elif Co2 > 95 and Co2 < 99.5: 
+        pdf.set_text_color(255, 255, 0)  # Amarillo
+        pdf.cell(35, 10,f"[AMARILLO]{Co2:.2f}%", 1)
+        pdf.set_text_color(0, 0, 0)
+    else:
+        pdf.set_text_color(255, 255, 0)  # verde
+        pdf.cell(35, 10,f"[VERDE]{Co2:.2f}%", 1)
+        pdf.set_text_color(0, 0, 0) 
     pdf.cell(40, 10, str(cobertura_vip), 1)
     pdf.ln()
 
     pdf.cell(20, 10, "REGENTES", 1)
     pdf.cell(50, 10, str(total_regentes), 1)
-    pdf.cell(35, 10, f"{Co3:.2f}%", 1) #//////////////////////////////////PONER ACA EL DATO DE LA FORMULA DE MEDICOS GENERALES
-    pdf.cell(40, 10, str(cobertura_regentes), 1)
+    if Co3 < 95:
+        pdf.set_text_color(255, 0, 0)  # Rojo
+        pdf.cell(35, 10, f"[RED]{Co3:.2f}%", 1)
+        pdf.set_text_color(0, 0, 0)    # Restaurar a negro
+    elif Co3 > 95 and Co3 < 99: 
+        pdf.set_text_color(255, 255, 0)  # Amarillo
+        pdf.cell(35, 10,f"[AMARILLO]{Co3:.2f}%", 1)
+        pdf.set_text_color(0, 0, 0)
+    else:
+        pdf.set_text_color(255, 255, 0)  # verde
+        pdf.cell(35, 10,f"[VERDE]{Co3:.2f}%", 1)
+        pdf.set_text_color(0, 0, 0) 
+    pdf.cell(40, 10,str(cobertura_regentes), 1)
     pdf.ln()
 
     # -------------------- REPORTE DETALLADO --------------------
@@ -399,13 +466,11 @@ def valor1(valo1):
     
     
 def extraer_todas_las_tablas_pdf(ruta_pdf):
-    """
-    Extrae todas las tablas del PDF y las convierte en HTML correctamente formateado,
-    aplicando un estilo especial para la tabla 'Datos Reales' con encabezado combinado.
-    """
     import pdfplumber
 
     tabla_html = ""
+    primera_tabla_normal = True
+    encabezados_columna = []
 
     with pdfplumber.open(ruta_pdf) as pdf:
         for page in pdf.pages:
@@ -422,7 +487,6 @@ def extraer_todas_las_tablas_pdf(ruta_pdf):
                     if not tabla_limpia:
                         continue
 
-                    # Verificar si es la tabla "Datos Reales"
                     if (
                         len(tabla_limpia) >= 4 and
                         tabla_limpia[0][0].upper().startswith("DATOS REALES")
@@ -432,32 +496,54 @@ def extraer_todas_las_tablas_pdf(ruta_pdf):
                             <tr>
                                 <td colspan='4' style='font-weight: bold; padding: 8px;'>DATOS REALES</td>
                             </tr>
-                            
                         """
 
                         for fila in tabla_limpia[1:]:
                             if len(fila) >= 4:
-                                tabla_html += f"""
-                                    <tr>
-                                        <td>{fila[0]}</td>
-                                        <td>{fila[1]}</td>
-                                        <td>{fila[2]}</td>
-                                        <td>{fila[3]}</td>
-                                    </tr>
-                                """
+                                tabla_html += "<tr>"
+                                for celda in fila[:4]:
+                                    estilo = "padding: 5px; border: 1px solid #000;"
+
+                                    if "[RED]" in celda:
+                                        estilo += "color: red; font-weight: bold;"
+                                        celda = celda.replace("[RED]", "")
+                                    elif "[AMARILLO]" in celda:
+                                        estilo += "color: orange; font-weight: bold;"
+                                        celda = celda.replace("[AMARILLO]", "")
+                                    elif "[VERDE]" in celda:
+                                        estilo += "color: green; font-weight: bold;"
+                                        celda = celda.replace("[VERDE]", "")
+
+                                    tabla_html += f"<td style='{estilo}'>{celda}</td>"
+                                tabla_html += "</tr>"
                         tabla_html += "</table><br>"
 
                     else:
-                        # Tabla normal
-                        tabla_html += "<table border='1' style='border-collapse: collapse; width: 100%;'>"
-                        for fila in tabla_limpia:
+                        tabla_html += "<table border='1' style='border-collapse: collapse; width: 100%; text-align: center;'>"
+                        for i, fila in enumerate(tabla_limpia):
                             tabla_html += "<tr>"
-                            for celda in fila:
-                                tabla_html += f"<td style='padding: 5px; border: 1px solid #000;'>{celda}</td>"
+                            for j, celda in enumerate(fila):
+                                estilo = "padding: 5px; border: 1px solid #000;"
+
+                                # Marcadores de color
+                                if "[RED]" in celda:
+                                    estilo += "color: red; font-weight: bold;"
+                                    celda = celda.replace("[RED]", "")
+                                elif "[AMARILLO]" in celda:
+                                    estilo += "color: orange; font-weight: bold;"
+                                    celda = celda.replace("[AMARILLO]", "")
+                                elif "[VERDE]" in celda:
+                                    estilo += "color: green; font-weight: bold;"
+                                    celda = celda.replace("[VERDE]", "")
+
+                                tabla_html += f"<td style='{estilo}'>{celda}</td>"
                             tabla_html += "</tr>"
                         tabla_html += "</table><br>"
 
+                        primera_tabla_normal = False
+
     return tabla_html if tabla_html else "<p>No se encontraron tablas en el PDF.</p>"
+
 
 def es_correo_valido(correo):
     """Verifica si el correo tiene un formato válido usando una expresión regular."""

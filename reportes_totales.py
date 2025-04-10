@@ -24,6 +24,10 @@ def obtener_ultimo_excel():
     return ruta_archivo if os.path.exists(ruta_archivo) else None
    # archivos = glob.glob(os.path.join(ruta_carpeta, "*.xlsx"))
    #return max(archivos, key=os.path.getctime) if archivos else None
+def normalizar_texto(texto):
+    if isinstance(texto, str):
+        return unicodedata.normalize("NFKD", texto).encode("ASCII", "ignore").decode("utf-8").strip().upper()
+    return ""
 def procesar_segundo_excel():
     archivo_adicional = os.path.join(ruta_carpeta, "ExportacaoAE_DNT-Ciclo 3.xlsx")  # Cambia por el nombre real
 
@@ -431,11 +435,15 @@ def generar_pdf_por_pais():
 
     paises = {"506": "Costa Rica", "507": "Panamá", "505": "Nicaragua"}
 
+    # Crear versión normalizada del diccionario de horas
+    HORAS_POR_CONSULTOR_NORMALIZADO = {
+        normalizar_texto(k): v for k, v in HORAS_POR_CONSULTOR.items()
+    }
+
     for codigo_pais, nombre_pais in paises.items():
         df_pais = df_filtrado[df_filtrado["SECTOR"].astype(str).str.startswith(codigo_pais)]
         consultores_unicos = df_pais["NOMBRE DEL SECTOR"].dropna().unique()
 
-        # Inicializamos acumuladores
         acum_promedio_medicos = 0
         acum_promedio_farmacias = 0
         acum_cobertura_medicos = 0
@@ -461,8 +469,9 @@ def generar_pdf_por_pais():
             fechas_unicas = sorted(df_consultor["FECHA DE VISITA"].dropna().unique())
             total_dias = len(fechas_unicas) if len(fechas_unicas) > 0 else 1
 
-            RESTAR_HORAS = HORAS_POR_CONSULTOR.get(consultor, 0)
-
+            # Normalizamos nombre del consultor
+            consultor_normalizado = normalizar_texto(consultor)
+            RESTAR_HORAS = HORAS_POR_CONSULTOR_NORMALIZADO.get(consultor_normalizado, 0)
             dias_restados = RESTAR_HORAS / 8
 
             cobertura_medicos = round(var_arreglo / total_dias, 2)
@@ -481,7 +490,7 @@ def generar_pdf_por_pais():
             cobertura_regentes_pct = round((total_regentes / var_arreglo_regentes) * 100, 2) if var_arreglo_regentes > 0 else 0
             cobertura_vip_pct = round((total_vip / var_arreglo_vip) * 100, 2) if var_arreglo_vip > 0 else 0
 
-            # Acumulamos
+            # Acumuladores
             acum_promedio_medicos += cobertura_medicos
             acum_promedio_farmacias += cobertura_regentes
             acum_cobertura_medicos += cobertura_medicos_pct
@@ -492,7 +501,23 @@ def generar_pdf_por_pais():
             acum_prog_vip += total_medicos_vip
             total_consultores += 1
 
-            # Fila consultor
+            print(f"\n--- Datos de {consultor} ({nombre_pais}) ---")
+            print(f"Total médicos: {total_medicos}")
+            print(f"Total VIP: {total_vip}")
+            print(f"Total regentes (PDV): {total_medicos_regentes}")
+            print(f"Días únicos: {total_dias}")
+            print(f"RESTAR_HORAS: {RESTAR_HORAS}")
+            print(f"Días restados: {dias_restados}")
+            print(f"Var arreglo (Médicos reales): {var_arreglo}")
+            print(f"Cobertura Médicos: {cobertura_medicos}")
+            print(f"Cobertura Farmacias: {cobertura_regentes}")
+            print(f"Cobertura Médicos %: {cobertura_medicos_pct}")
+            print(f"Cobertura Farmacias %: {cobertura_regentes_pct}")
+            print(f"Cobertura VIP %: {cobertura_vip_pct}")
+            print(f"Programados Médicos: {total_medicos_vip_estandar}")
+            print(f"Programados Farmacias: {total_medicos_regentes}")
+            print(f"Programados VIP: {total_medicos_vip}")
+
             pdf.cell(35, 10, nombre_pais, 1, 0, "C")
             pdf.cell(55, 10, consultor, 1, 0, "C")
             pdf.cell(25, 10, str(cobertura_medicos), 1, 0, "C")
@@ -504,7 +529,6 @@ def generar_pdf_por_pais():
             pdf.cell(25, 10, str(total_medicos_regentes), 1, 0, "C")
             pdf.cell(25, 10, str(total_medicos_vip), 1, 1, "C")
 
-        # Fila de totales del país
         if total_consultores > 0:
             pdf.set_font("Arial", "B", 10)
             pdf.cell(35, 10, nombre_pais, 1, 0, "C")
@@ -524,6 +548,7 @@ def generar_pdf_por_pais():
     return ruta_pdf
 
 
+
 #--------------------------------------------------------------------
 #///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 def extraer_todas_las_tablas_pdf(ruta_pdf):
@@ -537,7 +562,6 @@ def extraer_todas_las_tablas_pdf(ruta_pdf):
 
             if tablas:
                 for i, tabla in enumerate(tablas):
-                    #tabla_html += f"<h3>Resumen País {i + 1}</h3>"
                     tabla_html += "<table border='1' style='border-collapse: collapse; width: 100%; text-align: center;'>"
 
                     for fila_index, fila in enumerate(tabla):
