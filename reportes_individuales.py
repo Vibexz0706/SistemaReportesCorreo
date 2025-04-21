@@ -29,14 +29,13 @@ def obtener_ultimo_excel():
    #return max(archivos, key=os.path.getctime) if archivos else None
 
 def procesar_segundo_excel():
-    archivo_adicional = os.path.join(ruta_carpeta, "ExportacaoAE_DNT-Ciclo 3.xlsx")  # Cambia por el nombre real
+    archivo_adicional = os.path.join(ruta_carpeta, "ExportacaoAE_DNT-Ciclo 3.xlsx")
 
     if not os.path.exists(archivo_adicional):
         messagebox.showerror("Error", "No se encontró el segundo archivo Excel.")
         return
 
     df_extra = pd.read_excel(archivo_adicional, usecols=["SECTOR", "PERÍODO"])
-
     # Limpieza de columnas
     df_extra["SECTOR"] = df_extra["SECTOR"].astype(str).str.strip()
     df_extra["PERÍODO"] = df_extra["PERÍODO"].astype(str)
@@ -47,12 +46,13 @@ def procesar_segundo_excel():
         "50603": "RICARDO ZUNIGA",
         "50604": "KAROLINA MONTERO",
         "50605": "KEREN CARVAJAL",
-        "50606": "JOHAN ALBERTO ARCE NÚÑEZ"
+        "50606": "JOHAN ALBERTO ARCE NÚÑEZ",
+        "50704": "LOURDES ROA",
+        "50706": "NAZARETH NAVARRO"
         # Agrega más según lo que necesites
     }
     df_extra["NOMBRE_SECTOR"] = df_extra["SECTOR"].map(mapeo_nombres)
-  
-   
+
     # Extraer número de horas del texto como "8 horas"
     df_extra["HORAS"] = df_extra["PERÍODO"].apply(lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else 0)
 
@@ -62,22 +62,135 @@ def procesar_segundo_excel():
     print("Resumen de horas por nombre:")
     print(resumen_horas)
 
-    # Si querés también la suma total de todo:
+    # Suma total general
     total_horas = df_extra["HORAS"].sum()
     print(f"Total de horas (todos los sectores): {total_horas}")
 
     return resumen_horas, total_horas
 
-def aplicar_filtros():
-  
 
+def aplicar_filtros():
+
+    """
     CICLOS = {
         "CICLO 1": (datetime(2025, 1, 1), datetime(2025, 2, 10)),
         "CICLO 2": (datetime(2025, 2, 11), datetime(2025, 3, 13)),
         "CICLO 3": (datetime(2025, 3, 14), datetime(2025, 4, 12)),
-        "CICLO 4": (datetime(2025, 4, 13), datetime(2025, 5, 15)),
+        "CICLO 4": (datetime(2025, 4, 21), datetime(2025, 6, 16)),
+    }
+
+    def obtener_ciclo_actual(fecha_actual):
+        for ciclo, (inicio, fin) in CICLOS.items():
+            if inicio <= fecha_actual <= fin:
+                return ciclo, inicio, fin
+        return None, None, None
+
+    fecha_actual = datetime.now()
+    ciclo_actual, fecha_ciclo_inicio, fecha_ciclo_fin = obtener_ciclo_actual(fecha_actual)
+    if not ciclo_actual:
+        messagebox.showerror("Error", "No hay datos para el ciclo actual, actualiza la base.")
+        return
+
+    print(f"Ciclo actual: {ciclo_actual} ({fecha_ciclo_inicio.date()} a {fecha_ciclo_fin.date()})")
+
+
+    try:
+        df = pd.read_excel("tu_archivo.xlsx")  # Ajusta el nombre del archivo
+        df["FECHA"] = pd.to_datetime(df["FECHA"], dayfirst=True)
+
+    #   Filtrar por fechas del ciclo actual
+        df_filtrado = df[(df["FECHA"] >= fecha_ciclo_inicio) & (df["FECHA"] <= fecha_ciclo_fin)]
+
+        if df_filtrado.empty:
+            messagebox.showerror("Error", f"No hay datos disponibles para {ciclo_actual}.\n({fecha_ciclo_inicio.date()} a {fecha_ciclo_fin.date()})\nVerifica o actualiza la base de datos.")
+            return
+
+        print(f"✅ Datos encontrados para {ciclo_actual}: {len(df_filtrado)} registros")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"No se pudo cargar o procesar el archivo.\nDetalles: {e}")
+        return
+
+
+    feriados = {
+        datetime(2025, 3, 19),
+        datetime(2025, 4, 11),
+        datetime(2025, 4, 14),
+        datetime(2025, 4, 15),
+        datetime(2025, 4, 16),
+        datetime(2025, 4, 17),
+        datetime(2025, 4, 18),
+        datetime(2025, 5, 1),
+        # Agrega más feriados según lo necesites
+    }
+
+    global conteo
+    conteo = 0
+
+    def generar_ciclo(inicio, duracion=20):
+        fechas = []
+        actual = inicio
+        while len(fechas) < duracion:
+            if actual.weekday() < 5 and actual not in feriados:  # Día hábil
+                fechas.append(actual)
+            actual += timedelta(days=1)
+        return fechas
+    
+
+    # Generar todos los ciclos del año automáticamente
+    def generar_ciclos_del_anio(inicio_2025, cantidad_ciclos=20):
+        ciclos = []
+        inicio = inicio_2025
+        for _ in range(cantidad_ciclos):
+            ciclo = generar_ciclo(inicio)
+            ciclos.append(ciclo)
+            # El siguiente ciclo comienza el siguiente día hábil después del último del ciclo actual
+            siguiente_inicio = ciclo[-1] + timedelta(days=1)
+            while siguiente_inicio.weekday() >= 5 or siguiente_inicio in feriados:
+                siguiente_inicio += timedelta(days=1)
+            inicio = siguiente_inicio
+        return ciclos
+    
+    # Crear los ciclos para 2025 (ajusta la fecha inicial si cambia)
+    ciclos = generar_ciclos_del_anio(datetime(2025, 3, 14))
+
+    # Fecha de hoy (puedes usar datetime.today() si quieres que sea automática)
+    fecha_hoy = datetime.strptime("28/04/2025", "%d/%m/%Y")
+
+    # Encontrar el ciclo actual y contar los días transcurridos
+    for idx, ciclo in enumerate(ciclos):
+        if ciclo[0] <= fecha_hoy <= ciclo[-1]:
+            global DIA_DEL_CICLO
+            DIA_DEL_CICLO = sum(1 for f in ciclo if f <= fecha_hoy)
+            print(f"Estamos en el ciclo #{idx+1}, han transcurrido {DIA_DEL_CICLO} días hábiles.")
+            break
+    else:
+        print("La fecha actual no está dentro de ningún ciclo definido.")
+  
+
+    """
+
+
+    fechas_str = ["21/04/2025", "22/04/2025", "23/04/2025", "24/04/2025", "25/04/2025", "28/04/2025", "29/04/2025", "30/04/2025",
+                  "01/05/2025","02/05/2025","05/05/2025","06/05/2025","07/05/2025","08/05/2025","09/05/2025","12/05/2025","13/05/2025","14/05/2025","15/04/2025","16/05/2025"]
+    fechas = [datetime.strptime(f, "%d/%m/%Y") for f in fechas_str]
+    #fecha_hoy = datetime.strptime("10/04/2025", "%d/%m/%Y")  # o usa datetime.today() si quieres la real
+    fecha_hoy = datetime.today().strftime("%d/%m/%Y")
+    # Contar cuántas fechas son <= fecha_hoy
+    global conteo
+    conteo = sum(1 for f in fechas if f <= fecha_hoy)
+
+
+    
+    CICLOS = {
+        "CICLO 1": (datetime(2025, 1, 1), datetime(2025, 2, 10)),
+        "CICLO 2": (datetime(2025, 2, 11), datetime(2025, 3, 13)),
+        "CICLO 3": (datetime(2025, 3, 14), datetime(2025, 4, 20)),
+        #"CICLO 4": (datetime(2025, 4, 23), datetime(2025, 5, 15)),
         # Agregá más ciclos según sea necesario
     }
+
+
 
     def obtener_ciclo_actual(fecha_actual):
         for ciclo, (inicio, fin) in CICLOS.items():
@@ -91,7 +204,7 @@ def aplicar_filtros():
         return
 
     print(f"Ciclo actual: {ciclo_actual} ({fecha_ciclo_inicio.date()} a {fecha_ciclo_fin.date()})")
-
+    
     global df_filtrado
     archivo_excel = obtener_ultimo_excel()
     if not archivo_excel:
@@ -155,6 +268,8 @@ def aplicar_filtros():
         tabla.insert("", "end", values=("TOTAL", "", "", total_registros, ""))
 #///////////////////////////////////////////////////DATOS PARA SACAR LA RESTA DE DIAS AL CICLO///////////////////////////////////////////////////////////////////////////////////
     archivo_adicional = obtener_excel_especifico("ExportacaoAE_DNT-Ciclo 3.xlsx")
+    global RESTAR_HORAS
+    RESTAR_HORAS = 0
     if not archivo_adicional:
         return
 
@@ -174,7 +289,9 @@ def aplicar_filtros():
         "50603": "RICARDO  ZUNIGA",
         "50604": "KAROLINA MONTERO",
         "50605": "KEREN CARVAJAL",
-        "50606": "JOHAN ALBERTO ARCE NÚÑEZ"
+        "50606": "JOHAN ALBERTO ARCE NÚÑEZ",
+        "50704": "LOURDES ROA",
+        "50706": "NAZARETH NAVARRO"
     }
 
     # Buscar el nombre completo exacto filtrado en el primer Excel
@@ -201,14 +318,24 @@ def aplicar_filtros():
     df_extra_filtrado = df_extra[df_extra["SECTOR CLIENTE"] == codigo_sector]
 
     # === Extraer y sumar horas ===
-    df_extra_filtrado.loc[:, "HORAS"] = df_extra_filtrado["PERÍODO"].apply(
-        lambda x: int(re.search(r'\d+', x).group()) if pd.notnull(x) and re.search(r'\d+', x) else 0
-    )
+   # df_extra_filtrado.loc[:, "HORAS"] = df_extra_filtrado["PERÍODO"].apply(
+  #      lambda x: int(re.search(r'\d+', x).group()) if pd.notnull(x) and re.search(r'\d+', x) else 0
+   # )
+
+    def extraer_horas(periodo):
+        if pd.isnull(periodo):
+            return 0
+        match = re.search(r'\d+', str(periodo))
+        if match:
+            return int(match.group())
+        return 0
+
+    df_extra_filtrado["HORAS"] = df_extra_filtrado["PERÍODO"].apply(extraer_horas)
 
     # Filtrar horas mayores o iguales a 6
     df_extra_filtrado = df_extra_filtrado[df_extra_filtrado["HORAS"] >= 6]
 
-    global RESTAR_HORAS
+    #global RESTAR_HORAS
     RESTAR_HORAS = df_extra_filtrado["HORAS"].sum()
 
     print(f"Total de horas para {nombre_filtrado_completo} (código {codigo_sector}): {RESTAR_HORAS}")
@@ -244,6 +371,7 @@ def generar_pdf():
     # Calcular los totales para la tabla resumen
     total_medicos = len(df_filtrado)
     total_vip = len(df_filtrado[df_filtrado["CLASIFICACIÓN"] == "VIP"])
+    total_estandar = len(df_filtrado[df_filtrado["CLASIFICACIÓN"] == "ESTANDAR"])
     total_regentes = len(df_filtrado[df_filtrado["CLASIFICACIÓN"].isna()])
     var_arreglo = total_medicos - total_regentes 
     print(total_medicos) # BORRAR AHORITA ES UNA PRUEBA DE CONSOLA
@@ -268,7 +396,17 @@ def generar_pdf():
     cobertura_vip = round(total_vip_dias / total_dias, 2)
     global cobertura_regentes
     cobertura_regentes = round(total_regentes_dias / total_dias, 2)
+    #nom_correo = nom_correo.strip().upper()
+    
+    global cobertura_estandares
+    cobertura_estandares = round(total_estandar / total_dias, 2)
     print(nom_correo)
+    
+    Conversion_horas_dias = RESTAR_HORAS / 8
+    global Dias_Reales_Periodo
+    Dias_Reales_Periodo = total_dias - Conversion_horas_dias
+
+    #nom_correo = nom_correo.strip().upper()
 
     if nom_correo == "ANA KAREN MORA":
         divisor_medicos = 150
@@ -278,48 +416,137 @@ def generar_pdf():
         Var_arreglo_vip = 1.8
         Var_arreglo_estandar = 5.7
         Var_arreglo_regentes = 4
+        valor_real_medicos = Dias_Reales_Periodo * 7.5
+        valor_real_estandar = Dias_Reales_Periodo * 5.7
+        valor_real_vip = Dias_Reales_Periodo * 1.8
+        valor_real_regentes = Dias_Reales_Periodo * 4
+        var_ciclo_medicos = conteo * 7.5 
+        var_ciclo_estandares = conteo * 5.7
+        var_ciclo_vip = conteo * 1.8 
+        var_ciclo_farmacias = conteo * 4 
+
         print("ENTRO EL IF")
-    elif nom_correo == "RICARDO ZUNIGA":
+    elif nom_correo == "RICARDO":
         divisor_medicos = 180
         divisor_vip = 40
         divisor_regentes = 80
         Var_arreglo_real = 9
         Var_arreglo_vip = 2.08
-        Var_arreglo_vip = 6.2
+        Var_arreglo_estandar = 6.2
         Var_arreglo_regentes = 4
+        valor_real_medicos = Dias_Reales_Periodo * 9
+        valor_real_estandar = Dias_Reales_Periodo * 6.2
+        valor_real_vip = Dias_Reales_Periodo * 2.8
+        valor_real_regentes = Dias_Reales_Periodo * 4
+        var_ciclo_medicos = conteo * 9 
+        var_ciclo_estandares = conteo * 6.2
+        var_ciclo_vip = conteo * 2.8 
+        var_ciclo_farmacias = conteo * 4 
         print("No entro al if")
     elif nom_correo == "KEREN CARVAJAL":
         divisor_medicos = 180
         divisor_vip = 40
         divisor_regentes = 80
-        Var_arreglo_real = 9.1
+        Var_arreglo_real = 9
         Var_arreglo_vip = 2.05
         Var_arreglo_estandar = 7.05
         Var_arreglo_regentes = 4
+        valor_real_medicos = Dias_Reales_Periodo * 9
+        valor_real_estandar = Dias_Reales_Periodo * 7.05
+        valor_real_vip = Dias_Reales_Periodo * 2.08
+        valor_real_regentes = Dias_Reales_Periodo * 4
+        var_ciclo_medicos = conteo * 9 
+        var_ciclo_estandares = conteo * 7.05
+        var_ciclo_vip = conteo * 2.08 
+        var_ciclo_farmacias = conteo * 4 
         print("No entro al if")
     elif nom_correo == "JOHAN ALBERTO ARCE NUÑEZ":
         divisor_medicos = 180
         divisor_vip = 40
         divisor_regentes = 80
-        Var_arreglo_real = 8.9
+        Var_arreglo_real = 9
         Var_arreglo_vip = 2.3
         Var_arreglo_estandar = 6.6
         Var_arreglo_regentes = 4
+        valor_real_medicos = Dias_Reales_Periodo * 9
+        valor_real_estandar = Dias_Reales_Periodo * 6.6
+        valor_real_vip = Dias_Reales_Periodo * 2.3
+        valor_real_regentes = Dias_Reales_Periodo * 4
+        var_ciclo_medicos = conteo * 9 
+        var_ciclo_estandares = conteo * 6.6
+        var_ciclo_vip = conteo * 2.3 
+        var_ciclo_farmacias = conteo * 4 
         print("No entro al if")
+    elif nom_correo == "KAROLINA MONTERO":
+        divisor_medicos = 180
+        divisor_vip = 40
+        divisor_regentes = 80
+        Var_arreglo_real = 9
+        Var_arreglo_vip = 2.3
+        Var_arreglo_estandar = 6.6
+        Var_arreglo_regentes = 4
+        valor_real_medicos = Dias_Reales_Periodo * 9
+        valor_real_estandar = Dias_Reales_Periodo * 6.8
+        valor_real_vip = Dias_Reales_Periodo * 2.2
+        valor_real_regentes = Dias_Reales_Periodo * 4
+        var_ciclo_medicos = conteo * 9 
+        var_ciclo_estandares = conteo * 6.8
+        var_ciclo_vip = conteo * 2.2 
+        var_ciclo_farmacias = conteo * 4 
+        print("No entro al if")
+    elif nom_correo == "LOURDES ROA":
+        divisor_medicos = 180
+        divisor_vip = 40
+        divisor_regentes = 80
+        Var_arreglo_real = 9
+        Var_arreglo_vip = 2.3
+        Var_arreglo_estandar = 6.6
+        Var_arreglo_regentes = 4
+        valor_real_medicos = Dias_Reales_Periodo * 9
+        valor_real_estandar = Dias_Reales_Periodo * 6.8
+        valor_real_vip = Dias_Reales_Periodo * 2.2
+        valor_real_regentes = Dias_Reales_Periodo * 4
+        var_ciclo_medicos = conteo * 9 
+        var_ciclo_estandares = conteo * 6.8
+        var_ciclo_vip = conteo * 2.2 
+        var_ciclo_farmacias = conteo * 4 
+        print("No entro al if")
+
+    elif nom_correo == "NAZARETH NAVARRO":
+        divisor_medicos = 180
+        divisor_vip = 40
+        divisor_regentes = 80
+        Var_arreglo_real = 9
+        Var_arreglo_vip = 2.3
+        Var_arreglo_estandar = 6.6
+        Var_arreglo_regentes = 4
+        valor_real_medicos = Dias_Reales_Periodo * 9
+        valor_real_estandar = Dias_Reales_Periodo * 6.8
+        valor_real_vip = Dias_Reales_Periodo * 2.2
+        valor_real_regentes = Dias_Reales_Periodo * 4
+        var_ciclo_medicos = conteo * 9 
+        var_ciclo_estandares = conteo * 6.8
+        var_ciclo_vip = conteo * 2.2 
+        var_ciclo_farmacias = conteo * 4 
+        print("No entro al if")
+    else:
+        raise ValueError(f"Consultor no reconocido: {nom_correo}")
 
 
     # ACA LOS VOY A SETEAR COMO SI FUERA PARA ANA KAREN
-
-    Conversion_horas_dias = RESTAR_HORAS / 8
-    global Dias_Reales_Periodo
-    Dias_Reales_Periodo = total_dias - Conversion_horas_dias
+    #/////////////////////////////////////////////////////////////////
+    #Conversion_horas_dias = RESTAR_HORAS / 8
+    #global Dias_Reales_Periodo
+    #Dias_Reales_Periodo = total_dias - Conversion_horas_dias
+    #///////////////////////////////////////////////////////////////////////
+   
     var_arreglo_real = Var_arreglo_real * Dias_Reales_Periodo # CAMBIAR ESE VAR_ARREGLO POR EL TOTAL DE DIAS DE COBERTURA, O SEA EL TOTAL DE DIAS QUE JALA DE LA BASE 
    # print("aca total de dias de ciclo que llevamos", total_dias)
    # print("PRUEBA DE PRINT")
     #print(var_arreglo_real)
     var_arreglo_vip = Var_arreglo_vip * Dias_Reales_Periodo
     var_arreglo_regentes =  Var_arreglo_regentes * Dias_Reales_Periodo
-
+    var_arreglo_estandar = Var_arreglo_estandar * Dias_Reales_Periodo
 
     Cobertura_real_porcentaje = var_arreglo / var_arreglo_real
     global Co1
@@ -335,19 +562,26 @@ def generar_pdf():
     global Co3
     Co3 = Cobertura_Real_regentes * 100
 
+    cobertura_estandar = total_estandar / var_arreglo_estandar
+    global C04
+    C04 = cobertura_estandar * 100
    
     pdf.set_font("DejaVu", "B", 10)
-    pdf.cell(145, 10, "DATOS REALES", 1, ln=True, align="C")  
+    pdf.cell(255, 10, "DATOS REALES", 1, ln=True, align="C")  
     pdf.set_font("DejaVu", "B", 10)
-    pdf.cell(20, 10, "", 1)
-    pdf.cell(50, 10, "Contactos Total", 1)
+    pdf.cell(30, 10, "", 1)
+    pdf.cell(50, 10, "Contactos Ciclo", 1)
+    pdf.cell(50, 10, "Contactos Periodo", 1)
+    pdf.cell(50, 10, "Contactos Reales", 1)
     pdf.cell(35, 10, "Cobertura", 1)
     pdf.cell(40, 10, "Promedio Diario", 1)
 
     pdf.ln()
 
     pdf.set_font("DejaVu", "", 10)
-    pdf.cell(20, 10, "MÉDICOS", 1)
+    pdf.cell(30, 10, "MÉDICOS", 1)
+    pdf.cell(50, 10, f"{var_ciclo_medicos:.2f}", 1)
+    pdf.cell(50, 10, f"{valor_real_medicos:.2f}", 1)
     pdf.cell(50, 10, str(var_arreglo), 1) #ACA ERA TOTAL_MEDICO
     if Co1 < 95:
         pdf.set_text_color(255, 0, 0)  # Rojo
@@ -366,7 +600,9 @@ def generar_pdf():
     pdf.ln()
 
 
-    pdf.cell(20, 10, "VIP", 1)
+    pdf.cell(30, 10, "VIP", 1)
+    pdf.cell(50, 10, str(var_ciclo_vip), 1)
+    pdf.cell(50, 10, str(valor_real_vip), 1)
     pdf.cell(50, 10, str(total_vip), 1)
     if Co2 < 94.5:
         pdf.set_text_color(255, 0, 0)  # Rojo
@@ -383,7 +619,28 @@ def generar_pdf():
     pdf.cell(40, 10, str(cobertura_vip), 1)
     pdf.ln()
 
-    pdf.cell(20, 10, "REGENTES", 1)
+    pdf.cell(30, 10, "ESTANDARES", 1)
+    pdf.cell(50, 10, str(var_ciclo_estandares), 1)
+    pdf.cell(50, 10, str(valor_real_estandar), 1)
+    pdf.cell(50, 10, str(total_estandar), 1)
+    if C04 < 94.5:
+        pdf.set_text_color(255, 0, 0)  # Rojo
+        pdf.cell(35, 10, f"[RED]{C04:.2f}%", 1)
+        pdf.set_text_color(0, 0, 0)    # Restaurar a negro
+    elif C04 > 95 and C04 < 99.5: 
+        pdf.set_text_color(255, 255, 0)  # Amarillo
+        pdf.cell(35, 10,f"[AMARILLO]{C04:.2f}%", 1)
+        pdf.set_text_color(0, 0, 0)
+    else:
+        pdf.set_text_color(255, 255, 0)  # verde
+        pdf.cell(35, 10,f"[VERDE]{C04:.2f}%", 1)
+        pdf.set_text_color(0, 0, 0) 
+    pdf.cell(40, 10, str(cobertura_estandares), 1)
+    pdf.ln()
+
+    pdf.cell(30, 10, "FARMACIAS", 1)
+    pdf.cell(50, 10, str(var_ciclo_farmacias), 1)
+    pdf.cell(50, 10, str(valor_real_regentes), 1)
     pdf.cell(50, 10, str(total_regentes), 1)
     if Co3 < 95:
         pdf.set_text_color(255, 0, 0)  # Rojo
@@ -394,7 +651,7 @@ def generar_pdf():
         pdf.cell(35, 10,f"[AMARILLO]{Co3:.2f}%", 1)
         pdf.set_text_color(0, 0, 0)
     else:
-        pdf.set_text_color(255, 255, 0)  # verde
+        pdf.set_text_color(0, 255, 0)  # verde
         pdf.cell(35, 10,f"[VERDE]{Co3:.2f}%", 1)
         pdf.set_text_color(0, 0, 0) 
     pdf.cell(40, 10,str(cobertura_regentes), 1)
@@ -501,7 +758,7 @@ def extraer_todas_las_tablas_pdf(ruta_pdf):
                         for fila in tabla_limpia[1:]:
                             if len(fila) >= 4:
                                 tabla_html += "<tr>"
-                                for celda in fila[:4]:
+                                for celda in fila[:6]:
                                     estilo = "padding: 5px; border: 1px solid #000;"
 
                                     if "[RED]" in celda:
@@ -550,6 +807,9 @@ def es_correo_valido(correo):
     patron = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
     return re.match(patron, correo) is not None
 
+
+
+
 def enviar_correo():
 
     if nom_correo == "ANA KAREN MORA":
@@ -584,11 +844,11 @@ def enviar_correo():
         mail.HTMLBody = f"""
         <p>Estimada {Nombre}:</p>
         <p>Aquí te comento el estado de los principales indicadores de tus visitas. También adjunto un cuadro con el registro diario de las mismas según surgen del fichero</p>
-        <p>Día objetivo {total_dias}:</p> 
+        <p>Día objetivo {conteo}:</p> 
         <p>Día Reales {Dias_Reales_Periodo}:</p>
         {tabla_html}
         <b>Promedio de visitas a médicos = {cobertura_medicos}:</b>
-        <p>El promedio mínimo para alcanzar los contactos programados es de 7 visitas diarias.</p>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 7.5 visitas diarias.</p>
         <b>Promedio de visitas a farmacias = {cobertura_regentes} :</b>
         <p>El promedio mínimo para alcanzar los contactos programados es de 4 visitas diarias.</p>
         <b>Cobertura médicos = {Co1:.2f}</b>
@@ -599,14 +859,54 @@ def enviar_correo():
         <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
         <p>Muchas gracias por tu atención!</p>
 
-
         """
-
         mail.Attachments.Add(ruta_pdf)
-
         mail.Send()
         messagebox.showinfo("Correo Enviado", "El correo ha sido enviado correctamente.")
-    else:
+
+
+    elif nom_correo == "RICARDO":
+        correo_destino = entrada_correo.get().strip()
+        if not correo_destino:
+            messagebox.showwarning("Advertencia", "No se ingresó un correo. El reporte no se envió.")
+            return
+        if not es_correo_valido(correo_destino):
+            messagebox.showerror("Error", "El correo ingresado no es válido. Inténtalo de nuevo.")
+            return
+        
+        ruta_pdf = generar_pdf()
+        tabla_html = extraer_todas_las_tablas_pdf(ruta_pdf)  # Extrae todas las tablas como HTML
+        Nombre = entrada_nombre.get().strip()
+        correo_cc = "xotoyip215@buides.com; xotoyip215@buides.com"  # Correos separados por punto y coma
+
+        outlook = win32.Dispatch("Outlook.Application")
+        mail = outlook.CreateItem(0)
+        mail.CC = correo_cc
+        mail.To = correo_destino
+        mail.Subject = "AGD - Requiere atencion: registro de tus visitas"
+        mail.HTMLBody = f"""
+        <p>Estimado {Nombre}:</p>
+        <p>Aquí te comento el estado de los principales indicadores de tus visitas. También adjunto un cuadro con el registro diario de las mismas según surgen del fichero</p>
+        <p>Día objetivo {conteo}:</p> 
+        <p>Día Reales {Dias_Reales_Periodo}:</p>
+        {tabla_html}
+        <b>Promedio de visitas a médicos = {cobertura_medicos}:</b>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 9 visitas diarias.</p>
+        <b>Promedio de visitas a farmacias = {cobertura_regentes} :</b>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 4 visitas diarias.</p>
+        <b>Cobertura médicos = {Co1:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <b>Cobertura farmacias = {Co2:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <b>Cobertura médicos VIP = {Co3:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <p>Muchas gracias por tu atención!</p>
+        """
+        mail.Attachments.Add(ruta_pdf)
+        mail.Send()
+        messagebox.showinfo("Correo Enviado", "El correo ha sido enviado correctamente.")
+
+    elif nom_correo == "KEREN CARVAJAL":
         correo_destino = entrada_correo.get().strip()
         if not correo_destino:
             messagebox.showwarning("Advertencia", "No se ingresó un correo. El reporte no se envió.")
@@ -628,13 +928,176 @@ def enviar_correo():
         mail.HTMLBody = f"""
         <p>Estimada {Nombre}:</p>
         <p>Aquí te comento el estado de los principales indicadores de tus visitas. También adjunto un cuadro con el registro diario de las mismas según surgen del fichero</p>
-        <p>Día objetivo {total_dias}:</p> 
+        <p>Día objetivo {conteo}:</p> 
         <p>Día Reales {Dias_Reales_Periodo}:</p>
         {tabla_html}
         <b>Promedio de visitas a médicos = {cobertura_medicos}:</b>
-        <p>El promedio mínimo para alcanzar los contactos programados es de 7 visitas diarias.</p>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 9 visitas diarias.</p>
         <b>Promedio de visitas a farmacias = {cobertura_regentes} :</b>
-        <p>El promedio mínimo para alcanzar los contactos programados es de 3 visitas diarias.</p>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 4 visitas diarias.</p>
+        <b>Cobertura médicos = {Co1:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <b>Cobertura farmacias = {Co2:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <b>Cobertura médicos VIP = {Co3:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <p>Muchas gracias por tu atención!</p>
+        """
+        mail.Attachments.Add(ruta_pdf)
+        mail.Send()
+        messagebox.showinfo("Correo Enviado", "El correo ha sido enviado correctamente.")
+
+    elif nom_correo == "JOHAN ALBERTO ARCE NUÑEZ":
+        correo_destino = entrada_correo.get().strip()
+        if not correo_destino:
+            messagebox.showwarning("Advertencia", "No se ingresó un correo. El reporte no se envió.")
+            return
+        if not es_correo_valido(correo_destino):
+            messagebox.showerror("Error", "El correo ingresado no es válido. Inténtalo de nuevo.")
+            return
+        
+        ruta_pdf = generar_pdf()
+        tabla_html = extraer_todas_las_tablas_pdf(ruta_pdf)  # Extrae todas las tablas como HTML
+        Nombre = entrada_nombre.get().strip()
+        correo_cc = "xotoyip215@buides.com; xotoyip215@buides.com"  # Correos separados por punto y coma
+
+        outlook = win32.Dispatch("Outlook.Application")
+        mail = outlook.CreateItem(0)
+        mail.CC = correo_cc
+        mail.To = correo_destino
+        mail.Subject = "AGD - Requiere atencion: registro de tus visitas"
+        mail.HTMLBody = f"""
+        <p>Estimado {Nombre}:</p>
+        <p>Aquí te comento el estado de los principales indicadores de tus visitas. También adjunto un cuadro con el registro diario de las mismas según surgen del fichero</p>
+        <p>Día objetivo {conteo}:</p> 
+        <p>Día Reales {Dias_Reales_Periodo}:</p>
+        {tabla_html}
+        <b>Promedio de visitas a médicos = {cobertura_medicos}:</b>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 9 visitas diarias.</p>
+        <b>Promedio de visitas a farmacias = {cobertura_regentes} :</b>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 4 visitas diarias.</p>
+        <b>Cobertura médicos = {Co1:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <b>Cobertura farmacias = {Co2:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <b>Cobertura médicos VIP = {Co3:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <p>Muchas gracias por tu atención!</p>
+        """
+        mail.Attachments.Add(ruta_pdf)
+        mail.Send()
+        messagebox.showinfo("Correo Enviado", "El correo ha sido enviado correctamente.")
+    elif nom_correo == "KAROLINA MONTERO":
+        correo_destino = entrada_correo.get().strip()
+        if not correo_destino:
+            messagebox.showwarning("Advertencia", "No se ingresó un correo. El reporte no se envió.")
+            return
+        if not es_correo_valido(correo_destino):
+            messagebox.showerror("Error", "El correo ingresado no es válido. Inténtalo de nuevo.")
+            return
+        
+        ruta_pdf = generar_pdf()
+        tabla_html = extraer_todas_las_tablas_pdf(ruta_pdf)  # Extrae todas las tablas como HTML
+        Nombre = entrada_nombre.get().strip()
+        correo_cc = "xotoyip215@buides.com; xotoyip215@buides.com"  # Correos separados por punto y coma
+
+        outlook = win32.Dispatch("Outlook.Application")
+        mail = outlook.CreateItem(0)
+        mail.CC = correo_cc
+        mail.To = correo_destino
+        mail.Subject = "AGD - Requiere atencion: registro de tus visitas"
+        mail.HTMLBody = f"""
+        <p>Estimada {Nombre}:</p>
+        <p>Aquí te comento el estado de los principales indicadores de tus visitas. También adjunto un cuadro con el registro diario de las mismas según surgen del fichero</p>
+        <p>Día objetivo {conteo}:</p> 
+        <p>Día Reales {Dias_Reales_Periodo}:</p>
+        {tabla_html}
+        <b>Promedio de visitas a médicos = {cobertura_medicos}:</b>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 9 visitas diarias.</p>
+        <b>Promedio de visitas a farmacias = {cobertura_regentes} :</b>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 4 visitas diarias.</p>
+        <b>Cobertura médicos = {Co1:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <b>Cobertura farmacias = {Co2:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <b>Cobertura médicos VIP = {Co3:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <p>Muchas gracias por tu atención!</p>
+        """
+        mail.Attachments.Add(ruta_pdf)
+        mail.Send()
+        messagebox.showinfo("Correo Enviado", "El correo ha sido enviado correctamente.")
+
+    elif nom_correo == "LOURDES ROA":
+        correo_destino = entrada_correo.get().strip()
+        if not correo_destino:
+            messagebox.showwarning("Advertencia", "No se ingresó un correo. El reporte no se envió.")
+            return
+        if not es_correo_valido(correo_destino):
+            messagebox.showerror("Error", "El correo ingresado no es válido. Inténtalo de nuevo.")
+            return
+        
+        ruta_pdf = generar_pdf()
+        tabla_html = extraer_todas_las_tablas_pdf(ruta_pdf)  # Extrae todas las tablas como HTML
+        Nombre = entrada_nombre.get().strip()
+        correo_cc = "xotoyip215@buides.com; xotoyip215@buides.com"  # Correos separados por punto y coma
+
+        outlook = win32.Dispatch("Outlook.Application")
+        mail = outlook.CreateItem(0)
+        mail.CC = correo_cc
+        mail.To = correo_destino
+        mail.Subject = "AGD - Requiere atencion: registro de tus visitas"
+        mail.HTMLBody = f"""
+        <p>Estimada {Nombre}:</p>
+        <p>Aquí te comento el estado de los principales indicadores de tus visitas. También adjunto un cuadro con el registro diario de las mismas según surgen del fichero</p>
+        <p>Día objetivo {conteo}:</p> 
+        <p>Día Reales {Dias_Reales_Periodo}:</p>
+        {tabla_html}
+        <b>Promedio de visitas a médicos = {cobertura_medicos}:</b>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 9 visitas diarias.</p>
+        <b>Promedio de visitas a farmacias = {cobertura_regentes} :</b>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 4 visitas diarias.</p>
+        <b>Cobertura médicos = {Co1:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <b>Cobertura farmacias = {Co2:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <b>Cobertura médicos VIP = {Co3:.2f}</b>
+        <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
+        <p>Muchas gracias por tu atención!</p>
+        """
+        mail.Attachments.Add(ruta_pdf)
+        mail.Send()
+        messagebox.showinfo("Correo Enviado", "El correo ha sido enviado correctamente.")
+
+    elif nom_correo == "NAZARETH NAVARRO":
+        correo_destino = entrada_correo.get().strip()
+        if not correo_destino:
+            messagebox.showwarning("Advertencia", "No se ingresó un correo. El reporte no se envió.")
+            return
+        if not es_correo_valido(correo_destino):
+            messagebox.showerror("Error", "El correo ingresado no es válido. Inténtalo de nuevo.")
+            return
+        
+        ruta_pdf = generar_pdf()
+        tabla_html = extraer_todas_las_tablas_pdf(ruta_pdf)  # Extrae todas las tablas como HTML
+        Nombre = entrada_nombre.get().strip()
+        correo_cc = "xotoyip215@buides.com; xotoyip215@buides.com"  # Correos separados por punto y coma
+
+        outlook = win32.Dispatch("Outlook.Application")
+        mail = outlook.CreateItem(0)
+        mail.CC = correo_cc
+        mail.To = correo_destino
+        mail.Subject = "AGD - Requiere atencion: registro de tus visitas"
+        mail.HTMLBody = f"""
+        <p>Estimada {Nombre}:</p>
+        <p>Aquí te comento el estado de los principales indicadores de tus visitas. También adjunto un cuadro con el registro diario de las mismas según surgen del fichero</p>
+        <p>Día objetivo {conteo}:</p> 
+        <p>Día Reales {Dias_Reales_Periodo}:</p>
+        {tabla_html}
+        <b>Promedio de visitas a médicos = {cobertura_medicos}:</b>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 9 visitas diarias.</p>
+        <b>Promedio de visitas a farmacias = {cobertura_regentes} :</b>
+        <p>El promedio mínimo para alcanzar los contactos programados es de 4 visitas diarias.</p>
         <b>Cobertura médicos = {Co1:.2f}</b>
         <p>La cobertura teórica objetivo al día de la fecha es de 100.0%.</p>
         <b>Cobertura farmacias = {Co2:.2f}</b>
@@ -655,7 +1118,7 @@ def abrir_sistema_reportes():
     root.geometry("1000x600")
 
     
-    nombres_consultores = ["ANA KAREN MORA", "RICARDO","KAROLINA MONTER", "KEREN CARVAJAL","FIORELLA CHACON","JOHAN ALBERTO",
+    nombres_consultores = ["ANA KAREN MORA", "RICARDO","KAROLINA MONTERO", "KEREN CARVAJAL","FIORELLA CHACON","JOHAN ALBERTO",
     "LOURDES ROA", "NAZARETH NAVARRO","FANNY ROJAS", "MARIA GABRIELA DUARTE", "GENESIS TAMARA FUENTES BOJORG"]
 
     # Etiquetas y Entradas

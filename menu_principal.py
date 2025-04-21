@@ -21,9 +21,10 @@ btn_individual.pack(pady=10)
 btn_pais = ttk.Button(ventana_inicio, text="🌎 Reportes por País", command=abrir_sistema_pais)
 btn_pais.pack(pady=10)
 
+"""
 btn_totales = ttk.Button(ventana_inicio, text="📊 Reportes Totales", command=abrir_reporte_por_pais)
 btn_totales.pack(pady=10)
-
+"""
 btn_salir = ttk.Button(ventana_inicio, text="❌ Salir", command=salir)
 btn_salir.pack(pady=10)
 
